@@ -22,6 +22,8 @@ import android.os.Handler
 import android.os.Looper
 import android.util.AttributeSet
 import android.util.Log
+import android.view.GestureDetector
+import android.view.MotionEvent
 import android.view.View
 import android.view.WindowInsets
 import android.widget.FrameLayout
@@ -92,6 +94,7 @@ class PlayerBottomSheet private constructor(
     private val lifecycleOwner: LifecycleOwner
         get() = activity
     private val handler = Handler(Looper.getMainLooper())
+    private val gestureDetector: GestureDetector
     private val instance: MediaController?
         get() = activity.getPlayer()
     private var lastActuallyVisible: Boolean? = null
@@ -140,6 +143,35 @@ class PlayerBottomSheet private constructor(
             ViewCompat.performHapticFeedback(it, HapticFeedbackConstantsCompat.CONTEXT_CLICK)
             instance?.seekToNext()
         }
+
+        gestureDetector = GestureDetector(context, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onFling(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                velocityX: Float,
+                velocityY: Float
+            ): Boolean {
+                if (standardBottomSheetBehavior?.state == BottomSheetBehavior.STATE_HIDDEN || standardBottomSheetBehavior?.state == BottomSheetBehavior.STATE_DRAGGING) {
+                    return false
+                }
+
+                val diffX = e2.x - (e1?.x ?: 0f)
+                val diffY = e2.y - (e1?.y ?: 0f)
+                if (Math.abs(diffX) > Math.abs(diffY)) {
+                    if (Math.abs(diffX) > 100 && Math.abs(velocityX) > 100) {
+                        if (diffX > 0) {
+                            // Right swipe
+                            instance?.seekToPrevious()
+                        } else {
+                            // Left swipe
+                            instance?.seekToNext()
+                        }
+                        return true
+                    }
+                }
+                return false
+            }
+        })
 
         activity.controllerViewModel.addControllerCallback(activity.lifecycle) { _, _ ->
             instance?.addListener(this@PlayerBottomSheet)
@@ -419,4 +451,15 @@ class PlayerBottomSheet private constructor(
         fullPlayer.onStop()
     }
 
+    override fun onInterceptTouchEvent(ev: MotionEvent?): Boolean {
+        if (ev != null) {
+            return gestureDetector.onTouchEvent(ev) || super.onInterceptTouchEvent(ev)
+        }
+        return super.onInterceptTouchEvent(ev)
+    }
+
+    @SuppressLint("ClickableViewAccessibility")
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event)
+    }
 }
