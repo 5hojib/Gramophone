@@ -56,10 +56,12 @@ class NewLyricsView(context: Context, attrs: AttributeSet?) : View(context, attr
     private val prefs = PreferenceManager.getDefaultSharedPreferences(context)
     private lateinit var typeface: Typeface
     private val grdWidth = context.resources.getDimension(R.dimen.lyric_gradient_size)
-    private val defaultTextSize = context.resources.getDimension(R.dimen.lyric_text_size)
-    private val translationTextSize = context.resources.getDimension(R.dimen.lyric_tl_text_size)
+    // Original values: R.dimen.lyric_text_size, R.dimen.lyric_tl_text_size, R.dimen.lyric_tl_bg_text_size
+    // Consider making these configurable in preferences or dimens.xml if further changes are needed.
+    private val defaultTextSize = context.resources.getDimension(R.dimen.lyric_text_size) - 2f.dpToPx(context) // Reduced by 2sp
+    private val translationTextSize = context.resources.getDimension(R.dimen.lyric_tl_text_size) - 2f.dpToPx(context) // Reduced by 2sp
     private val translationBackgroundTextSize =
-        context.resources.getDimension(R.dimen.lyric_tl_bg_text_size)
+        context.resources.getDimension(R.dimen.lyric_tl_bg_text_size) - 2f.dpToPx(context) // Reduced by 2sp
     private val globalPaddingTop = context.resources.getDimensionPixelSize(R.dimen.lyric_top_padding)
     private val globalPaddingBottom =
         context.resources.getDimensionPixelSize(R.dimen.lyric_bottom_padding)
@@ -884,7 +886,23 @@ class NewLyricsView(context: Context, attrs: AttributeSet?) : View(context, attr
         velocityX: Float,
         velocityY: Float
     ): Boolean {
-        return false // handled by parent
+        if (e1 == null) return false // Should not happen with a valid fling
+        val diffX = e2.x - e1.x
+        val diffY = e2.y - e1.y
+        if (Math.abs(diffX) > Math.abs(diffY)) {
+            if (Math.abs(diffX) > 100 && Math.abs(velocityX) > 100) {
+                if (diffX > 0) {
+                    // Right swipe
+                    (context as? MainActivity)?.getPlayer()?.seekToPrevious()
+                } else {
+                    // Left swipe
+                    (context as? MainActivity)?.getPlayer()?.seekToNext()
+                }
+                return true
+            }
+        }
+        // If not a horizontal fling, let parent NestedScrollView handle vertical scroll
+        return super.onFling(e1, e2, velocityX, velocityY)
     }
 
     data class SbItem(
